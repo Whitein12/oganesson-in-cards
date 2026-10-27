@@ -220,7 +220,13 @@ function doPlay(g, pi, a) {
     emit(g, { t: 'play', p: pi, uid: card.uid, cardId: card.cardId, target: target ? target.uid : null, secret: !!def.secret, choice: a.choice, pos: a.pos });
     refresh(g);
     const main = option ? option.effects : def.type === 'spell' ? def.play : def.battlecry;
-    const effects = () => { runEffects(g, main, ctx); if (combo && def.combo) runEffects(g, def.combo, ctx); };
+    const effects = () => {
+        // Catalyst: a minion played next to a friendly Catalyst runs its Battlecry twice (two neighbours don't stack)
+        const cat = def.type === 'minion' && main ? select(g, 'adjacent', { p: pi, src: card }).find(m => m.kw.catalyst) : null;
+        runEffects(g, main, ctx);
+        if (cat) { emit(g, { t: 'trigger', uid: cat.uid }); runEffects(g, main, ctx); }
+        if (combo && def.combo) runEffects(g, def.combo, ctx);
+    };
 
     if (def.type === 'minion') {
         if (!phaseRun(g, () => { placeMinion(g, pi, card, a.pos); fire(g, 'cardPlayed', playEv); fire(g, 'summoned', { player: pi, subject: card }); })) return;

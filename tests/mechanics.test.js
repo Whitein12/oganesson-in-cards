@@ -32,6 +32,9 @@ function makeSuite() {
         { id: 't_sd', type: 'minion', cost: 1, atk: 0, hp: 2, spellDamage: 1 },
         { id: 't_brute', type: 'minion', cost: 1, atk: 1, hp: 6, triggers: [{ on: 'damaged', who: 'self', effects: [{ do: 'buff', to: 'self', atk: 1 }] }] },
         { id: 't_endheal', type: 'minion', cost: 1, atk: 1, hp: 1, triggers: [{ on: 'turnEnd', who: 'friendly', effects: [{ do: 'heal', to: 'myHero', amount: 2 }] }] },
+        { id: 't_burst', type: 'minion', cost: 1, atk: 1, hp: 3, spellburst: [{ do: 'armor', amount: 2 }] },
+        { id: 't_cat', type: 'minion', cost: 1, atk: 0, hp: 3, keywords: ['catalyst'] },
+        { id: 't_bc', type: 'minion', cost: 1, atk: 1, hp: 1, battlecry: [{ do: 'armor', amount: 2 }] },
         { id: 't_combo', type: 'minion', cost: 0, atk: 1, hp: 1, target: 'any', targetIf: 'combo', combo: [{ do: 'damage', to: 'target', amount: 2 }] },
         { id: 't_bolt', type: 'spell', cost: 1, target: 'any', play: [{ do: 'damage', to: 'target', amount: 3 }] },
         { id: 't_overload', type: 'spell', cost: 1, overload: 2, play: [{ do: 'armor', amount: 1 }] },
@@ -318,6 +321,48 @@ function makeSuite() {
         eq(H(g, 1).hp, 30);
         play(g, 0, 't_combo', { target: H(g, 1).uid });
         eq(H(g, 1).hp, 28);
+    });
+
+    test('Spellburst triggers once, after your own spell', () => {
+        const g = setup({ hands: [['t_bolt', 't_bolt'], ['t_bolt']], boards: [['t_burst'], []] });
+        end(g);
+        play(g, 1, 't_bolt', { target: H(g, 0).uid });
+        eq(H(g, 0).armor, 0, 'enemy spells do not count'); eq(B(g, 0, 0).spellburst, true);
+        end(g);
+        play(g, 0, 't_bolt', { target: H(g, 1).uid });
+        eq(H(g, 0).armor, 2); eq(B(g, 0, 0).spellburst, false);
+        play(g, 0, 't_bolt', { target: H(g, 1).uid });
+        eq(H(g, 0).armor, 2, 'used up');
+    });
+
+    test('Spellburst: secrets count, Silence removes it', () => {
+        const g = setup({ hands: [['t_secret'], []], boards: [['t_burst'], []] });
+        play(g, 0, 't_secret');
+        eq(H(g, 0).armor, 2);
+        const h = setup({ hands: [['t_silence', 't_bolt'], []], boards: [['t_burst'], []] });
+        play(h, 0, 't_silence', { target: B(h, 0, 0).uid });
+        play(h, 0, 't_bolt', { target: H(h, 1).uid });
+        eq(H(h, 0).armor, 0); eq(B(h, 0, 0).spellburst, false);
+    });
+
+    test('Catalyst doubles the Battlecry of minions played next to it, every time', () => {
+        const g = setup({ hands: [['t_bc', 't_bc', 't_bc'], []], boards: [['t_cat'], []] });
+        play(g, 0, 't_bc', { pos: 0 });
+        eq(H(g, 0).armor, 4);
+        play(g, 0, 't_bc', { pos: 2 });
+        eq(H(g, 0).armor, 8, 'not used up');
+        play(g, 0, 't_bc', { pos: 0 });
+        eq(H(g, 0).armor, 10, 'not next to it');
+    });
+
+    test('Catalyst: two neighbours do not stack; Silence removes it', () => {
+        const g = setup({ hands: [['t_bc'], []], boards: [['t_cat', 't_cat'], []] });
+        play(g, 0, 't_bc', { pos: 1 });
+        eq(H(g, 0).armor, 4);
+        const h = setup({ hands: [['t_silence', 't_bc'], []], boards: [['t_cat'], []] });
+        play(h, 0, 't_silence', { target: B(h, 0, 0).uid });
+        play(h, 0, 't_bc', { pos: 1 });
+        eq(H(h, 0).armor, 2);
     });
 
     test('Discover pauses the action and replays it deterministically', () => {

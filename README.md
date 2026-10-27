@@ -123,7 +123,7 @@ defineCards([
 | `battlecry` | A minion's or weapon's effects when played from hand |
 | `combo` | Extra effects if another card was played earlier this turn |
 | `deathrattle` | Effects when it dies |
-| `triggers` | Reactions to game events, see [Triggers](#triggers) |
+| `spellburst` | A minion's effects, once, after you next cast a spell (secrets count). `eventSubject` is the spell || `triggers` | Reactions to game events, see [Triggers](#triggers) |
 | `aura` | Continuous bonuses while it is in play, see [Auras](#auras) |
 | `secret` | Makes a spell a Secret, see [Secrets](#secrets) |
 | `chooseOne` | `[{ name, text, art, target, effects }, ...]`, where the player picks one option |
@@ -149,6 +149,7 @@ defineCards([
 | `immune` | Takes no damage |
 | `cantAttack` | Can't attack |
 | `freeze` | On a minion: freezes any character it damages |
+| `catalyst` | Minions you play next to it run their Battlecry (or Choose One option) twice; two Catalyst neighbours don't stack |
 
 Battlecry, Deathrattle, Combo, Overload, Secret, Choose One and Discover are explained on the card automatically.
 

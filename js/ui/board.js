@@ -285,7 +285,7 @@ function renderBoard(el, p) {
     }, (d, m) => {
         d.className = minionClasses(m);
         d.style.setProperty('--cls', classColor((CARDS[m.cardId] || {}).class));
-        const sig = JSON.stringify([m.cardId, m.atk, m.hp, m.maxHp, m.damage, m.shield, m.frozen, m.stealth, m.silenced, m.sleeping, m.reborn, m.kw, m.enchants.length]);
+        const sig = JSON.stringify([m.cardId, m.atk, m.hp, m.maxHp, m.damage, m.shield, m.frozen, m.stealth, m.silenced, m.sleeping, m.reborn, m.spellburst, m.kw, m.enchants.length]);
         if (d._sig !== sig) { d._sig = sig; d.innerHTML = minionInner(m); }
     });
 }

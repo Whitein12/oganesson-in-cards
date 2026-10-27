@@ -100,7 +100,7 @@ function validateAll() {
 
 // Every effect list of a card definition (for walking and validation)
 function effectLists(def) {
-    const lists = [def.play, def.battlecry, def.combo, def.deathrattle];
+    const lists = [def.play, def.battlecry, def.combo, def.deathrattle, def.spellburst];
     for (const t of [].concat(def.triggers || [])) lists.push(t.effects);
     if (def.secret) lists.push(def.secret.effects);
     for (const o of def.chooseOne || []) lists.push(o.effects);
@@ -232,7 +232,8 @@ function mergeKw(kw, add) {
 }
 
 // Static keywords: the card's own (unless silenced), plus enchantments and auras.
-// Divine Shield, Stealth and Reborn are spent, so minions keep them as statuses (shield, stealth, reborn).
+// Divine Shield, Stealth and Reborn are spent, so minions keep them as statuses (shield, stealth, reborn),
+// like the one-shot Spellburst slot (spellburst).
 function computeKw(e) {
     const def = CARDS[e.cardId];
     const kw = {};
@@ -251,6 +252,7 @@ function initMinion(g, m) {
     m.silenced = false; m.destroyed = false; m.auraAtk = 0; m.auraHp = 0; m.auraKw = null;
     m.kw = computeKw(m);
     m.shield = !!m.kw.divineShield; m.stealth = !!m.kw.stealth; m.reborn = !!m.kw.reborn;
+    m.spellburst = !!CARDS[m.cardId].spellburst;
     m.maxHp = computeMaxHp(m); m.atk = computeAtk(m); m.hp = m.maxHp;
     m.turnPlayed = g.turn;
     delete m.cost; delete m.costMod; delete m.auraCost;
@@ -366,6 +368,8 @@ function holderTriggers(e) {
     if (e.silenced) return [];
     const list = [].concat(CARDS[e.cardId].triggers || []);
     for (const en of e.enchants || []) if (en.grant && GRANTS[en.grant]) list.push(...GRANTS[en.grant].triggers);
+    // One-shot slot while its status lasts; `spend` names the status that resolving uses up
+    if (e.spellburst) list.push({ on: 'afterSpell', who: 'friendly', spend: 'spellburst', effects: CARDS[e.cardId].spellburst });
     return list;
 }
 
@@ -427,6 +431,7 @@ function resolveQueue(g) {
         const q = rt.queue.shift();
         if (q.kind === 'trigger') {
             if (q.holder.silenced && q.holder.zone === 'board') continue;
+            if (q.trig.spend) { if (!q.holder[q.trig.spend]) continue; q.holder[q.trig.spend] = false; }
             emit(g, { t: 'trigger', uid: q.holder.uid });
             runEffects(g, q.trig.effects, { p: q.holder.owner, src: q.holder, def: CARDS[q.holder.cardId], ev: q.ev, isSpell: false });
         } else if (q.kind === 'secret') {
@@ -553,7 +558,7 @@ function freezeChar(g, t) {
 function silenceMinion(g, t) {
     if (!t || t.zone !== 'board') return;
     t.enchants = []; t.silenced = true;
-    t.shield = false; t.stealth = false; t.reborn = false; t.frozen = false;
+    t.shield = false; t.stealth = false; t.reborn = false; t.frozen = false; t.spellburst = false;
     emit(g, { t: 'silence', uid: t.uid });
     refresh(g);
 }

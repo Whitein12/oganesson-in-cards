@@ -3,7 +3,7 @@
 // Card fields: id, name, type ('minion' | 'spell' | 'weapon'), cost, class ('neutral' or a hero class), rarity
 // ('common' | 'rare' | 'epic' | 'legendary'), text (**bold**, $N = spell damage number), art (emoji or image path),
 // atk/hp (minions), atk/durability (weapons), tribe, keywords, spellDamage, overload, collectible (false = token)
-// Behaviour: play (spells), battlecry, combo, deathrattle, triggers, aura, secret, chooseOne, target, targetFilter, targetIf
+// Behaviour: play (spells), battlecry, combo, deathrattle, spellburst, triggers, aura, secret, chooseOne, target, targetFilter, targetIf
 // See README.md "Card authoring" for every effect, selector, trigger event and the script API.
 // ==========================================
 
@@ -55,6 +55,8 @@ defineCards([
     { id: 'demo_drill_sergeant', name: 'Drill Sergeant', type: 'minion', cost: 2, atk: 2, hp: 2, art: '🎖️',
       text: '**Battlecry:** Give a friendly minion +1/+1.', target: 'friendlyMinion',
       battlecry: [{ do: 'buff', to: 'target', atk: 1, hp: 1 }] },
+    { id: 'demo_alchemist', name: 'Alchemist', type: 'minion', cost: 2, atk: 1, hp: 3, art: '⚗️',
+      keywords: ['catalyst'], text: '**Catalyst**' },
     { id: 'demo_ironhide_ogre', name: 'Ironhide Ogre', type: 'minion', cost: 6, atk: 6, hp: 7, art: '🦏', text: '' },
     { id: 'demo_stone_colossus', name: 'Stone Colossus', type: 'minion', cost: 8, atk: 8, hp: 8, rarity: 'legendary', art: '🗿',
       keywords: ['taunt'], text: '**Taunt**' },
@@ -77,6 +79,8 @@ defineCards([
     { id: 'demo_ember_dragon', name: 'Ember Dragon', type: 'minion', cost: 5, atk: 4, hp: 5, class: 'ember', rarity: 'epic', tribe: 'dragon', art: '🐉',
       text: 'At the start of your turn, deal 2 damage to a random enemy.',
       triggers: [{ on: 'turnStart', who: 'friendly', effects: [{ do: 'damage', to: 'randomEnemyCharacter', amount: 2 }] }] },
+    { id: 'demo_flux_elemental', name: 'Flux Elemental', type: 'minion', cost: 3, atk: 3, hp: 3, class: 'ember', rarity: 'rare', art: '🌠',
+      text: '**Spellburst:** Deal 2 damage to a random enemy.', spellburst: [{ do: 'damage', to: 'randomEnemyCharacter', amount: 2 }] },
     { id: 'demo_gust', name: 'Gust', type: 'spell', cost: 2, class: 'ember', art: '🌪️',
       text: 'Return an enemy minion to its owner\'s hand.', target: 'enemyMinion', play: [{ do: 'bounce', to: 'target' }] },
 

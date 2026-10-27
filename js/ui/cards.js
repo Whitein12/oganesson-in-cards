@@ -127,7 +127,9 @@ function minionInner(m) {
     if (kw.windfury) icons.push('🌀');
     if (kw.spellDamage) icons.push('🔷');
     if (kw.freeze) icons.push('❄️');
+    if (kw.catalyst) icons.push('⚗️');
     if (m.reborn) icons.push('👻');
+    if (m.spellburst) icons.push('🔮');
     const atkCls = m.atk > def.atk ? 'buffed' : m.atk < def.atk ? 'damaged' : '';
     const hpCls = m.damage > 0 ? 'damaged' : m.maxHp > def.hp ? 'buffed' : '';
     const zzz = m.sleeping && !kw.charge && !kw.rush ? '<div class="zzz">z<small>z</small></div>' : '';
@@ -170,6 +172,7 @@ function cardKeywordIds(def) {
     if (def.battlecry) add('battlecry');
     if (def.deathrattle) add('deathrattle');
     if (def.combo) add('combo');
+    if (def.spellburst) add('spellburst');
     if (def.overload) add('overload');
     if (def.secret) add('secret');
     if (def.chooseOne) add('chooseOne');
