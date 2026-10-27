@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Oganesson in Cards</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='8' fill='%231c1426' stroke='%23e2b65b' stroke-width='4'/%3E%3Ctext x='32' y='43' font-family='Georgia' font-size='28' font-weight='bold' fill='%23e2b65b' text-anchor='middle'%3EOg%3C/text%3E%3C/svg%3E">
+    <!-- Web fonts load without blocking the page, so offline LAN games start at once with the fallback fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Alegreya+Sans:wght@500;700;800&display=swap" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+    <!-- Menus are built by js/ui/menu.js, the collection by js/ui/collection.js -->
+    <div id="screen-menu" class="screen"></div>
+    <div id="screen-collection" class="screen hidden"></div>
+
+    <!-- The game table; js/ui/board.js fills the zones -->
+    <div id="screen-game" class="screen hidden">
+        <div id="table">
+            <div class="felt"></div>
+            <div class="midline"></div>
+            <div id="opp-hand" class="hand opp"></div>
+            <div id="opp-deck" class="deck opp"></div>
+            <div id="opp-mana" class="mana opp"></div>
+            <div id="opp-hero-area" class="hero-area opp">
+                <div id="opp-weapon" class="weapon-slot"></div>
+                <div id="opp-hero" class="hero-slot"></div>
+                <div id="opp-power" class="power-slot"></div>
+                <div id="opp-secrets" class="secrets"></div>
+            </div>
+            <div id="opp-name" class="player-name opp"></div>
+            <div id="opp-board" class="minion-row opp"></div>
+            <div id="my-board" class="minion-row me"></div>
+            <div id="my-hero-area" class="hero-area me">
+                <div id="my-weapon" class="weapon-slot"></div>
+                <div id="my-hero" class="hero-slot"></div>
+                <div id="my-power" class="power-slot"></div>
+                <div id="my-secrets" class="secrets"></div>
+            </div>
+            <div id="my-name" class="player-name me"></div>
+            <div id="my-mana" class="mana me"></div>
+            <div id="my-deck" class="deck me"></div>
+            <div id="my-hand" class="hand me"></div>
+            <button id="end-turn" class="end-turn" type="button">END TURN</button>
+            <div id="turn-timer" class="turn-timer"><div class="rope"></div></div>
+            <div id="log" class="log"><div class="log-title">History</div><div id="log-list" class="log-list"></div></div>
+            <div id="net-status" class="net-status"></div>
+            <button id="menu-btn" class="icon-btn" type="button" title="Menu">&#9776;</button>
+        </div>
+        <svg id="arrow-layer" class="arrow-layer">
+            <defs>
+                <marker id="arrow-head" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                </marker>
+            </defs>
+            <path id="arrow-path" marker-end="url(#arrow-head)"></path>
+        </svg>
+        <div id="fx-layer" class="fx-layer"></div>
+        <div id="zoom" class="zoom"></div>
+        <div id="banner" class="banner"></div>
+        <div id="overlay" class="overlay hidden"></div>
+    </div>
+    <div id="toast" class="toast"></div>
+</div>
+
+<!-- Engine (pure, also loaded by tests/harness.js) -->
+<script src="js/rules.js"></script>
+<script src="js/engine/core.js"></script>
+<script src="js/engine/effects.js"></script>
+<script src="js/engine/view.js"></script>
+<script src="js/engine/actions.js"></script>
+<script src="js/engine/bot.js"></script>
+<!-- Card data -->
+<script src="js/data/keywords.js"></script>
+<script src="js/data/heroes.js"></script>
+<script src="js/data/cards_demo.js"></script>
+<script src="js/data/decks.js"></script>
+<!-- Networking -->
+<script src="lib/peerjs.min.js"></script>
+<script src="js/net/peer.js"></script>
+<script src="js/net/lan.js"></script>
+<script src="js/net/session.js"></script>
+<!-- Interface -->
+<script src="js/ui/cards.js"></script>
+<script src="js/ui/board.js"></script>
+<script src="js/ui/anim.js"></script>
+<script src="js/ui/input.js"></script>
+<script src="js/ui/collection.js"></script>
+<script src="js/ui/menu.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
