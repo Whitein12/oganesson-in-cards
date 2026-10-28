@@ -108,6 +108,13 @@ async function animEvent(ev) {
         case 'power':
             if (ev.p !== me || spectate) { restartClass(uidEl(ev.uid), 'flash'); await sleep(450); }
             break;
+        case 'activate': {
+            const el = uidEl(ev.uid);
+            restartClass(el, 'flash');
+            setGem(el, 'dur', ev.durability, 'damaged');
+            await sleep(ev.p !== me || spectate ? 450 : 200);
+            break;
+        }
         case 'attack': await lunge(uidEl(ev.src), uidEl(ev.dst)); break;
         case 'damage': {
             const el = uidEl(ev.uid);
@@ -158,7 +165,7 @@ async function animEvent(ev) {
             await sleep(500);
             break;
         case 'loop': uiToast('A runaway chain of effects was stopped.'); break;
-        case 'summon': case 'draw': case 'addCard': case 'equip': await sleep(40); break;
+        case 'summon': case 'place': case 'draw': case 'addCard': case 'equip': await sleep(40); break;
     }
 }
 
@@ -189,6 +196,7 @@ function logEvent(ev, next) {
             break;
         case 'attack': Log.add(name(ev.src) + ' attacked ' + name(ev.dst), side(ev.p)); break;
         case 'power': Log.add(who(ev.p) + ' used <b>' + esc(HEROES[v.players[ev.p].heroId].power.name) + '</b>' + (ev.target != null ? ' on ' + name(ev.target) : ''), side(ev.p)); break;
+        case 'activate': Log.add(who(ev.p) + ' used ' + card(ev.cardId) + (ev.target != null ? ' on ' + name(ev.target) : ''), side(ev.p)); break;
         case 'reveal': Log.add('Secret revealed: ' + card(ev.cardId), side(ev.p)); break;
         case 'burn': Log.add(who(ev.p) + ' burned ' + card(ev.cardId) + ' (hand full)', side(ev.p)); break;
         case 'discard': Log.add(who(ev.p) + ' discarded ' + card(ev.cardId), side(ev.p)); break;

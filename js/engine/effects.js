@@ -76,6 +76,8 @@ function select(g, sel, ctx) {
         case 'eventSubject': return ev.subject ? [ev.subject] : [];
         case 'eventTarget': return ev.target ? [ev.target] : [];
         case 'eventSource': return ev.source ? [ev.source] : [];
+        case 'myLocations': return me.board.filter(e => e.zone === 'location');
+        case 'enemyLocations': return opp.board.filter(e => e.zone === 'location');
         case 'myWeapon': return me.weapon ? [me.weapon] : [];
         case 'enemyWeapon': return opp.weapon ? [opp.weapon] : [];
         case 'myHand': return me.hand.slice();
@@ -147,10 +149,10 @@ function pickDistinct(g, ids, n) {
     return out;
 }
 
-// Where a summon lands: right of the source minion, where a dead source stood, or at the right end
+// Where a summon lands: right of the source minion or location, where a dead source stood, or at the right end
 function summonPos(g, ctx, side) {
     const src = ctx.src;
-    if (src && src.zone === 'board' && src.owner === side) return g.players[side].board.indexOf(src) + 1;
+    if (src && (src.zone === 'board' || src.zone === 'location') && src.owner === side) return g.players[side].board.indexOf(src) + 1;
     if (src && src.owner === side && ctx.pos != null) return ctx.pos;
     return g.players[side].board.length;
 }
@@ -214,8 +216,7 @@ const EFFECTS = {
     // { do: 'destroy', to }
     destroy(g, fx, ctx) {
         for (const t of select(g, fx.to, ctx)) {
-            if (t.zone === 'board') t.destroyed = true;
-            else if (t.zone === 'weapon') t.destroyed = true;
+            if (t.zone === 'board' || t.zone === 'location' || t.zone === 'weapon') t.destroyed = true;
             else if (t.zone === 'hero') { t.damage = t.maxHp; t.hp = 0; }
             emit(g, { t: 'destroy', uid: t.uid });
         }

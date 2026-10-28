@@ -56,6 +56,11 @@ function makeSuite() {
         { id: 't_script', type: 'spell', cost: 0, play: [api => api.damage(api.opp.hero, api.me.hand.length)] },
         { id: 't_both', type: 'spell', cost: 0, play: [api => api.damage([api.me.hero, api.opp.hero], 50)] },
         { id: 't_nextcost', type: 'spell', cost: 0, play: [{ do: 'nextCost', amount: -2, filter: { type: 'spell' } }] },
+        { id: 't_watch', type: 'minion', cost: 1, atk: 0, hp: 5, triggers: [
+            { on: 'summoned', effects: [{ do: 'armor', amount: 1 }] }, { on: 'minionDied', effects: [{ do: 'armor', amount: 10 }] }] },
+        { id: 't_loc', type: 'location', cost: 1, durability: 2, activate: [{ do: 'armor', amount: 2 }] },
+        { id: 't_loc_buff', type: 'location', cost: 1, durability: 3, target: 'friendlyMinion', activate: [{ do: 'buff', to: 'target', atk: 1, hp: 1 }] },
+        { id: 't_loc_summon', type: 'location', cost: 1, durability: 3, activate: [{ do: 'summon', card: 't_22' }] },
     ]);
 
     const TDECK = n => ({ id: 't_deck', name: 'Test', hero: 't_hero', cards: { t_filler: n } });
@@ -69,7 +74,11 @@ function makeSuite() {
             const p = g.players[i];
             p.hand = ((o.hands || [])[i] || []).map(id => E.makeCard(g, id, i, 'hand'));
             p.board = [];
-            for (const id of (o.boards || [])[i] || []) { const m = E.makeCard(g, id, i, 'board'); E.placeMinion(g, i, m); m.sleeping = false; }
+            for (const id of (o.boards || [])[i] || []) {
+                const m = E.makeCard(g, id, i, 'board');
+                if (E.CARDS[id].type === 'location') E.placeLocation(g, i, m);
+                else { E.placeMinion(g, i, m); m.sleeping = false; }
+            }
             p.mana = p.maxMana = o.mana != null ? o.mana : 10;
         }
         E.refresh(g);
@@ -365,6 +374,62 @@ function makeSuite() {
         eq(H(h, 0).armor, 2);
     });
 
+    test('Locations: usable when played, closed for your next turn, open on the one after, break at 0 Durability', () => {
+        const g = setup({ hands: [['t_loc'], []], boards: [['t_22'], []] });
+        play(g, 0, 't_loc', { pos: 0 });
+        const loc = B(g, 0, 0);
+        eq(loc.zone, 'location'); eq(g.players[0].board.length, 2, 'takes a board slot');
+        act(g, 0, { type: 'activate', uid: loc.uid });
+        eq(H(g, 0).armor, 2); eq(loc.durability, 1);
+        bad(g, 0, { type: 'activate', uid: loc.uid });
+        end(g);
+        bad(g, 1, { type: 'activate', uid: loc.uid });
+        end(g);
+        bad(g, 0, { type: 'activate', uid: loc.uid });
+        eq(loc.durability, 1, 'still closed on your next turn');
+        end(g); end(g);
+        act(g, 0, { type: 'activate', uid: loc.uid });
+        eq(H(g, 0).armor, 4);
+        eq(g.players[0].board.map(m => m.cardId).join(), 't_22', 'destroyed at 0 Durability');
+        assert(g.players[0].grave.includes('t_loc'), 'in the graveyard');
+    });
+
+    test('Locations are not minions: no attacks, targets, minion effects or minion triggers', () => {
+        const g = setup({ hands: [['t_bolt', 't_aoe', 't_silence'], []], boards: [['t_22'], ['t_loc', 't_22']] });
+        const loc = B(g, 1, 0);
+        bad(g, 0, { type: 'attack', attacker: B(g, 0, 0).uid, target: loc.uid });
+        bad(g, 0, { type: 'play', uid: card(g, 0, 't_bolt').uid, target: loc.uid });
+        bad(g, 0, { type: 'play', uid: card(g, 0, 't_silence').uid, target: loc.uid });
+        assert(!Engine.legalActions(g, 0).some(a => a.target === loc.uid), 'never a legal target');
+        play(g, 0, 't_aoe');
+        eq(g.players[1].board.map(m => m.cardId).join(), 't_loc', 'AoE skips it'); eq(loc.durability, 2);
+        const h = setup({ hands: [['t_22'], []], boards: [['t_loc', 't_22', 't_22', 't_22', 't_22', 't_22', 't_22'], []] });
+        bad(h, 0, { type: 'play', uid: card(h, 0, 't_22').uid });
+        const w = setup({ hands: [['t_loc'], []], boards: [['t_watch'], []] });
+        play(w, 0, 't_loc');
+        act(w, 0, { type: 'activate', uid: B(w, 0, 1).uid });
+        end(w); end(w); end(w); end(w);
+        act(w, 0, { type: 'activate', uid: B(w, 0, 1).uid });
+        eq(w.players[0].board.length, 1);
+        eq(H(w, 0).armor, 4, 'no summon or death triggers');
+    });
+
+    test('Location targets and summons', () => {
+        const g = setup({ hands: [['t_22'], []], boards: [['t_loc_buff'], ['t_33']] });
+        const loc = B(g, 0, 0);
+        assert(!Engine.activateInfo(g, 0, loc).ok, 'no friendly minion to target');
+        play(g, 0, 't_22');
+        bad(g, 0, { type: 'activate', uid: loc.uid });
+        bad(g, 0, { type: 'activate', uid: loc.uid, target: B(g, 1, 0).uid });
+        act(g, 0, { type: 'activate', uid: loc.uid, target: B(g, 0, 1).uid });
+        eq(B(g, 0, 1).atk, 3); eq(B(g, 0, 1).maxHp, 3);
+        const s = setup({ boards: [['t_33', 't_loc_summon', 't_33'], []] });
+        act(s, 0, { type: 'activate', uid: B(s, 0, 1).uid });
+        eq(s.players[0].board.map(m => m.cardId).join(), 't_33,t_loc_summon,t_22,t_33', 'summoned right of the location');
+        const full = setup({ boards: [['t_loc_summon', 't_22', 't_22', 't_22', 't_22', 't_22', 't_22'], []] });
+        bad(full, 0, { type: 'activate', uid: B(full, 0, 0).uid });
+    });
+
     test('Discover pauses the action and replays it deterministically', () => {
         const g = setup({ hands: [['t_discover'], []] });
         const r1 = play(g, 0, 't_discover');
@@ -530,10 +595,11 @@ function makeSuite() {
     });
 
     test('Legality helpers agree with apply on views', () => {
-        const g = setup({ hands: [['t_bolt', 't_22'], []], boards: [['t_22'], ['t_taunt']] });
+        const g = setup({ hands: [['t_bolt', 't_22', 't_loc'], []], boards: [['t_22', 't_loc_buff'], ['t_taunt', 't_loc']] });
         const v = Engine.viewFor(g, 0);
         const acts = Engine.legalActions(v, 0);
         assert(acts.length > 3);
+        assert(acts.some(a => a.type === 'activate'), 'location activations are listed');
         for (const a of acts) {
             const copy = JSON.parse(JSON.stringify(g));
             const r = Engine.apply(copy, 0, a);

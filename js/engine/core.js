@@ -23,9 +23,10 @@ function defineCards(list) {
         if (!src || !src.id) throw new Error('Card without an id: ' + JSON.stringify(src));
         if (CARDS[src.id]) console.warn('Card id defined twice: ' + src.id);
         const def = Object.assign({ name: src.id, text: '', rarity: 'common', class: 'neutral', keywords: [], collectible: true, cost: 0 }, src);
-        if (!['minion', 'spell', 'weapon'].includes(def.type)) throw new Error('Card ' + def.id + ' has an unknown type: ' + def.type);
+        if (!['minion', 'spell', 'weapon', 'location'].includes(def.type)) throw new Error('Card ' + def.id + ' has an unknown type: ' + def.type);
         if (def.type === 'minion') { def.atk = def.atk || 0; def.hp = def.hp || 1; }
         if (def.type === 'weapon') { def.atk = def.atk || 0; def.durability = def.durability || 1; }
+        if (def.type === 'location') def.durability = def.durability || 1;
         registerGrants(def);
         CARDS[def.id] = def;
     }
@@ -100,7 +101,7 @@ function validateAll() {
 
 // Every effect list of a card definition (for walking and validation)
 function effectLists(def) {
-    const lists = [def.play, def.battlecry, def.combo, def.deathrattle, def.spellburst];
+    const lists = [def.play, def.battlecry, def.combo, def.deathrattle, def.spellburst, def.activate];
     for (const t of [].concat(def.triggers || [])) lists.push(t.effects);
     if (def.secret) lists.push(def.secret.effects);
     for (const o of def.chooseOne || []) lists.push(o.effects);
@@ -194,7 +195,7 @@ function isCharacter(e) { return !!e && (e.zone === 'hero' || e.zone === 'board'
 function isAlive(e) { return isCharacter(e) && e.hp > 0 && !e.destroyed; }
 function isOver(g) { return g.phase === 'over'; }
 
-// Every minion on the board in play order (the order triggers and auras resolve in)
+// Everything on the board (minions and locations) in play order (the order triggers and auras resolve in)
 function minionsInOrder(g) {
     return g.players[0].board.concat(g.players[1].board).sort((a, b) => a.order - b.order);
 }
@@ -262,7 +263,7 @@ function initMinion(g, m) {
 // Losing max Health (an aura or buff going away) only lowers current Health if it is above the new max.
 function refresh(g) {
     for (const p of g.players) {
-        for (const m of p.board) { m.auraAtk = 0; m.auraHp = 0; m.auraKw = null; }
+        for (const m of p.board) if (m.zone === 'board') { m.auraAtk = 0; m.auraHp = 0; m.auraKw = null; }
         for (const c of p.hand) c.auraCost = 0;
         p.hero.auraKw = null;
     }
@@ -272,6 +273,7 @@ function refresh(g) {
 
     for (const p of g.players) {
         for (const m of p.board) {
+            if (m.zone !== 'board') continue; // locations have no stats
             const max = computeMaxHp(m);
             if (m.maxHp != null && max < m.maxHp) m.damage = Math.max(0, m.damage - (m.maxHp - max));
             m.maxHp = max; m.hp = m.maxHp - m.damage;
@@ -577,6 +579,24 @@ function placeMinion(g, pi, m, pos) {
     return true;
 }
 
+// Places a location on its owner's board: it takes a minion slot but is not a minion (no stats, can't be
+// attacked or targeted). It can be activated right away. False when the board is full.
+function placeLocation(g, pi, loc, pos) {
+    const p = g.players[pi];
+    if (p.board.length >= RULES.boardLimit) return false;
+    if (pos == null || pos < 0 || pos > p.board.length) pos = p.board.length;
+    loc.owner = pi; loc.zone = 'location';
+    loc.enchants = []; loc.destroyed = false;
+    loc.durability = CARDS[loc.cardId].durability;
+    loc.readyTurn = 0;
+    delete loc.cost; delete loc.costMod; delete loc.auraCost;
+    p.board.splice(pos, 0, loc);
+    loc.order = g.nextOrder++;
+    emit(g, { t: 'place', p: pi, uid: loc.uid, cardId: loc.cardId, pos });
+    refresh(g);
+    return true;
+}
+
 // Summons a new minion (not played from hand), firing the summon triggers
 function summonMinion(g, pi, cardId, pos) {
     if (g.players[pi].board.length >= RULES.boardLimit) return null;
@@ -668,11 +688,14 @@ function checkGameOver(g) {
     return true;
 }
 
-// Removes every dead minion and broken weapon at once, then queues their deathrattles, Reborn and
-// "minion died" triggers (in play order). Returns false when nothing died.
+// Removes every dead minion, used-up location and broken weapon at once, then queues their deathrattles,
+// Reborn and "minion died" triggers (in play order). Returns false when nothing died.
 function collectDeaths(g) {
     const dying = [];
-    for (const p of g.players) for (const m of p.board) if (m.hp <= 0 || m.destroyed) dying.push(m);
+    for (const p of g.players) for (const m of p.board) {
+        if (m.zone === 'location' ? m.durability <= 0 || m.destroyed : m.hp <= 0 || m.destroyed) dying.push(m);
+    }
+    const locations = new Set(dying.filter(m => m.zone === 'location'));
     const weapons = g.players.map(p => p.weapon).filter(w => w && (w.durability <= 0 || w.destroyed));
     if (!dying.length && !weapons.length) return false;
     dying.sort((a, b) => a.order - b.order);
@@ -699,6 +722,7 @@ function collectDeaths(g) {
     for (const m of dying) {
         const pos = posOf.get(m);
         for (const list of deathrattlesOf(m)) rt.queue.push({ kind: 'effects', effects: list, ctx: { p: m.owner, src: m, def: CARDS[m.cardId], pos } });
+        if (locations.has(m)) continue;
         if (m.reborn && !m.silenced) rt.queue.push({ kind: 'reborn', p: m.owner, cardId: m.cardId, pos });
         fire(g, 'minionDied', { player: m.owner, subject: m });
     }

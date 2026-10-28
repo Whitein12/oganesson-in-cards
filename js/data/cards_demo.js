@@ -1,9 +1,10 @@
 // ==========================================
 // cards_demo.js - DEMO cards (placeholders that exercise every engine mechanic; delete when the real set arrives)
-// Card fields: id, name, type ('minion' | 'spell' | 'weapon'), cost, class ('neutral' or a hero class), rarity
+// Card fields: id, name, type ('minion' | 'spell' | 'weapon' | 'location'), cost, class ('neutral' or a hero class), rarity
 // ('common' | 'rare' | 'epic' | 'legendary'), text (**bold**, $N = spell damage number), art (emoji or image path),
-// atk/hp (minions), atk/durability (weapons), tribe, keywords, spellDamage, overload, collectible (false = token)
-// Behaviour: play (spells), battlecry, combo, deathrattle, spellburst, triggers, aura, secret, chooseOne, target, targetFilter, targetIf
+// atk/hp (minions), atk/durability (weapons), durability (locations), tribe, keywords, spellDamage, overload, collectible (false = token)
+// Behaviour: play (spells), battlecry, combo, deathrattle, spellburst, activate (locations), triggers, aura, secret, chooseOne,
+// target, targetFilter, targetIf
 // See README.md "Card authoring" for every effect, selector, trigger event and the script API.
 // ==========================================
 
@@ -57,6 +58,8 @@ defineCards([
       battlecry: [{ do: 'buff', to: 'target', atk: 1, hp: 1 }] },
     { id: 'demo_alchemist', name: 'Alchemist', type: 'minion', cost: 2, atk: 1, hp: 3, art: '⚗️',
       keywords: ['catalyst'], text: '**Catalyst**' },
+    { id: 'demo_training_grounds', name: 'Training Grounds', type: 'location', cost: 2, durability: 3, art: '🏟️',
+      text: 'Give a friendly minion +1/+1.', target: 'friendlyMinion', activate: [{ do: 'buff', to: 'target', atk: 1, hp: 1 }] },
     { id: 'demo_ironhide_ogre', name: 'Ironhide Ogre', type: 'minion', cost: 6, atk: 6, hp: 7, art: '🦏', text: '' },
     { id: 'demo_stone_colossus', name: 'Stone Colossus', type: 'minion', cost: 8, atk: 8, hp: 8, rarity: 'legendary', art: '🗿',
       keywords: ['taunt'], text: '**Taunt**' },
@@ -81,6 +84,8 @@ defineCards([
       triggers: [{ on: 'turnStart', who: 'friendly', effects: [{ do: 'damage', to: 'randomEnemyCharacter', amount: 2 }] }] },
     { id: 'demo_flux_elemental', name: 'Flux Elemental', type: 'minion', cost: 3, atk: 3, hp: 3, class: 'ember', rarity: 'rare', art: '🌠',
       text: '**Spellburst:** Deal 2 damage to a random enemy.', spellburst: [{ do: 'damage', to: 'randomEnemyCharacter', amount: 2 }] },
+    { id: 'demo_fire_altar', name: 'Fire Altar', type: 'location', cost: 3, durability: 2, class: 'ember', rarity: 'rare', art: '⛩️',
+      text: 'Deal 2 damage to a random enemy.', activate: [{ do: 'damage', to: 'randomEnemyCharacter', amount: 2 }] },
     { id: 'demo_gust', name: 'Gust', type: 'spell', cost: 2, class: 'ember', art: '🌪️',
       text: 'Return an enemy minion to its owner\'s hand.', target: 'enemyMinion', play: [{ do: 'bounce', to: 'target' }] },
 

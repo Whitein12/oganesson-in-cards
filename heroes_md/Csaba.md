@@ -1,6 +1,7 @@
 # Hero: Csaba
 
 Class inspiration: Rogue
+Player inspiration: Heavy smoker, theoretical chemist (math focus, dynamics)
 Playstyle: Combo, Midrange
 
 ### Hero power:

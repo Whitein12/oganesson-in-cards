@@ -29,7 +29,11 @@ function makeSuite(games) {
             for (const s of p.secrets) { seen(s); assert(s.zone === 'secret', where + ': bad secret'); }
             for (const m of p.board) {
                 seen(m);
-                assert(m.zone === 'board' && m.owner === p.index, where + ': bad minion');
+                assert((m.zone === 'board' || m.zone === 'location') && m.owner === p.index, where + ': bad minion');
+                if (m.zone === 'location') {
+                    if (!g.pending) assert(m.durability > 0 && !m.destroyed, where + ': used-up location left on the board');
+                    continue;
+                }
                 assert(m.hp === m.maxHp - m.damage && m.damage >= 0, where + ': bad minion health');
                 if (!g.pending) assert(m.hp > 0 && !m.destroyed, where + ': dead minion left on the board');
             }

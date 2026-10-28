@@ -29,7 +29,7 @@ function botGreedy(g, pi, rand) {
     const p = g.players[pi];
     if (g.phase === 'mulligan') return { type: 'mulligan', replace: p.hand.filter(c => c.cost >= 4).map(c => c.uid) };
     if (g.pending) return { type: 'choose', index: bestOption(g) };
-    return botLethal(g, pi) || botPlay(g, pi, rand) || botAttack(g, pi) || botPower(g, pi, rand) || { type: 'end' };
+    return botLethal(g, pi) || botPlay(g, pi, rand) || botLocation(g, pi, rand) || botAttack(g, pi) || botPower(g, pi, rand) || { type: 'end' };
 }
 
 function bestOption(g) {
@@ -102,10 +102,11 @@ function botPickTarget(g, pi, list, uids, extra, rand) {
 // Untargeted cards that would obviously be wasted (or hurt us) are skipped
 function botWorthIt(g, pi, list) {
     const me = g.players[pi], opp = g.players[1 - pi];
+    const minions = p => p.board.filter(m => m.zone === 'board').length;
     for (const fx of [].concat(list || [])) {
         if (!fx || typeof fx === 'function') continue;
-        if (fx.do === 'damage' && fx.to === 'enemyMinions' && !opp.board.length) return false;
-        if (fx.do === 'damage' && fx.to === 'allMinions' && opp.board.length <= me.board.length) return false;
+        if (fx.do === 'damage' && fx.to === 'enemyMinions' && !minions(opp)) return false;
+        if (fx.do === 'damage' && fx.to === 'allMinions' && minions(opp) <= minions(me)) return false;
         if (fx.do === 'heal' && fx.to === 'myHero' && me.hero.damage < 3) return false;
         if (fx.do === 'draw' && me.hand.length >= 8) return false;
         if (fx.do === 'summon' && me.board.length >= RULES.boardLimit) return false;
@@ -129,7 +130,7 @@ function botPlay(g, pi, rand) {
             action.choice = i; t = info.options[i]; list = def.chooseOne[i].effects;
         }
         if (!list && def.combo && p.cardsPlayed > 0) list = def.combo;
-        if (def.type === 'minion') action.pos = p.board.length;
+        if (def.type === 'minion' || def.type === 'location') action.pos = p.board.length;
         if (t.need) {
             let target = botPickTarget(g, pi, list, t.targets, def.type === 'spell' ? spellPower(g, pi) : 0, rand);
             if (target == null && def.type === 'spell') continue;
@@ -163,6 +164,19 @@ function botAttack(g, pi) {
         if (best && (!canFace || (bestScore >= 10 && best.atk >= 2))) return { type: 'attack', attacker: e.uid, target: best.uid };
         if (canFace) return { type: 'attack', attacker: e.uid, target: face.uid };
         if (best) return { type: 'attack', attacker: e.uid, target: best.uid };
+    }
+    return null;
+}
+
+// Uses a ready location when its effect looks worth it
+function botLocation(g, pi, rand) {
+    for (const loc of g.players[pi].board) {
+        const info = activateInfo(g, pi, loc);
+        if (!info.ok) continue;
+        const list = CARDS[loc.cardId].activate;
+        if (!info.need) { if (botWorthIt(g, pi, list)) return { type: 'activate', uid: loc.uid }; continue; }
+        const target = botPickTarget(g, pi, list, info.targets, 0, rand);
+        if (target != null) return { type: 'activate', uid: loc.uid, target };
     }
     return null;
 }

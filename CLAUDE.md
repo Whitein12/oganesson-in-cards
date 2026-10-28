@@ -29,9 +29,10 @@ The cards, heroes and decks in `js/data/` are **placeholders**. The user will su
   3. queues their deathrattles, Reborn and `minionDied`,
   4. repeats until stable.
 
-  The pipelines in actions.js (`doPlay`, `doAttack`, `doPower`, `doEndTurn`, `startTurn`) are sequences of `phaseRun`.
+  The pipelines in actions.js (`doPlay`, `doAttack`, `doPower`, `doActivate`, `doEndTurn`, `startTurn`) are sequences of `phaseRun`.
 - **Derived numbers come from `refresh(g)`**, called after every effect: auras, attack, max Health, keywords, hand costs. Minions store `damage`, so hp = maxHp − damage, and losing max Health only clamps current Health. Divine Shield, Stealth and Reborn are spendable statuses (`shield`, `stealth`, `reborn`) rather than keywords. So is the one-shot Spellburst slot (`spellburst`): while it is set, `holderTriggers` adds its trigger, and `resolveQueue` clears it when the trigger runs.
-- **Legality helpers only read public or own information** (`playInfo`, `canAttack`, `attackTargets`, `powerInfo`, `legalActions`), so they work on views. The UI and the bot use them on the player's view.
+- **Locations share `p.board` with minions**, so they take a slot and keep their position, but their zone is `'location'`. `isCharacter` / `isAlive` exclude them, so selectors, targets and attacks skip them. They have `durability` and `readyTurn` (open when `g.turn >= readyTurn`) and no stats. `doActivate` uses one; `collectDeaths` removes it at 0 Durability.
+- **Legality helpers only read public or own information** (`playInfo`, `canAttack`, `attackTargets`, `powerInfo`, `activateInfo`, `legalActions`), so they work on views. The UI and the bot use them on the player's view.
 - **Decks are plain data** everywhere outside the menus: `{ id, name, hero, cards: { cardId: copies } }` (`deckData()`). Players' own decks live in localStorage (`MyDecks`, collection.js). The menus offer `playableDecks()` (own decks first, then the premade `DECKS`). Sessions get deck objects, and a guest sends its deck in `hello`, where the host runs `sanitizeDeck` and then `Engine.validateDeck`.
 - **The UI is a queue.** `uiPush({ view, events, me, timer, reset })` queues an update. `uiShow` plays the events as animations on the current DOM (`anim.js`), then renders the new view (`board.js`, elements keyed by uid via `syncChildren`), then `afterRender` shows the state overlays (mulligan, Discover, waiting, game over). In hot-seat, a change of `me` splits the events at the `turn` event and shows the pass screen. `UI.gen` stops stale animation loops when a session ends.
 
@@ -72,6 +73,7 @@ Every script is a plain global script loaded by `<script>` tags in `index.html` 
 
 - **The stage is 100u tall and 160u–213u wide** (`--u` and `#stage` in style.css). Place things relative to the edges or `50%` (the centre), never at a fixed distance from the left edge for something meant to be centred.
 - **Hand cards keep their hover area still.** The `.hand-card` wrapper is the hover area and stays in its fan position; only the `.card` inside lifts. Don't move the wrapper on hover, or the card flickers when the pointer is near its edge.
+- **`p.board` is not only minions.** Code that loops over it for minion stats or statuses must check `zone === 'board'` (locations have no hp, atk or kw).
 - **CSS class names are global.** Board classes such as `.hero`, `.power`, `.deck`, `.minion`, `.card` and `.art` style absolutely positioned game pieces. Menu markup must use its own names (the deck tiles use `d-*`).
 - **Emoji art must exist in Windows 10's Segoe UI Emoji.** Avoid Emoji 13+ such as 🥷 and 🪙, which render as boxes.
 - **Network messages must stay JSON.** Views are what the guest renders, so they must stay small and secret-free (the fuzz test checks this).

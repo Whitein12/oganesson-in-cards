@@ -1,8 +1,8 @@
 // ==========================================
 // input.js - Pointer play on the table. Drag a card onto the board (or click it, then click the board),
 // drop minions between other minions, aim the arrow at a target for attacks, targeted spells,
-// Battlecries and the hero power (drag-and-release or click-then-click). Right-click or Esc cancels.
-// Also the glows: playable cards, ready attackers, a usable hero power.
+// Battlecries, the hero power and locations (drag-and-release or click-then-click). Right-click or Esc cancels.
+// Also the glows: playable cards, ready attackers, a usable hero power, open locations.
 // ==========================================
 
 const Input = {
@@ -75,7 +75,8 @@ const Input = {
         }
         for (const e of [me.hero].concat(me.board)) {
             const el = uidEl(e.uid);
-            if (el) el.classList.toggle('ready', active && Engine.canAttack(v, UI.me, e));
+            const ok = e.zone === 'location' ? Engine.activateInfo(v, UI.me, e).ok : Engine.canAttack(v, UI.me, e);
+            if (el) el.classList.toggle('ready', active && ok);
         }
         const pw = uidEl(me.power.uid);
         if (pw) pw.classList.toggle('ready', active && Engine.powerInfo(v, UI.me).ok);
@@ -166,6 +167,7 @@ function onPointerDown(e) {
     if (el.classList.contains('hand-card')) grabCard(el, ent);
     else if (ent.zone === 'board' || ent.zone === 'hero') startAttack(el, ent);
     else if (ent.zone === 'power') usePower(el);
+    else if (ent.zone === 'location') useLocation(el, ent);
 }
 
 function onPointerMove(e) {
@@ -228,16 +230,19 @@ function moveCard(x, y) {
         Input.ghost.style.left = (x - s.left) + 'px';
         Input.ghost.style.top = (y - s.top) + 'px';
     }
-    if (Input.def.type === 'minion') {
+    if (takesSlot(Input.def)) {
         $('my-board').classList.toggle('drop-zone', overBoard);
         if (overBoard) showHolder(boardPos(x)); else hideHolder();
     }
 }
 
+// Cards that go into the minion row, where the player picks the spot
+function takesSlot(def) { return def.type === 'minion' || def.type === 'location'; }
+
 function dropCard(x, y) {
     if (inHandZone(y)) { Input.cancel(); return; }
     const action = { type: 'play', uid: Input.card.uid };
-    if (Input.def.type === 'minion') action.pos = boardPos(x);
+    if (takesSlot(Input.def)) action.pos = boardPos(x);
     if (Input.ghost) { Input.ghost.remove(); Input.ghost = null; }
     $('my-board').classList.remove('drop-zone');
     if (Input.def.chooseOne) return chooseOneThen(action);
@@ -272,7 +277,7 @@ function chooseOneThen(action) {
     o.querySelector('.btn').onclick = () => Input.cancel();
 }
 
-// ---------- Attacks and the hero power ----------
+// ---------- Attacks, the hero power and locations ----------
 
 function startAttack(el, ent) {
     const targets = Engine.attackTargets(UI.view, UI.me, ent).map(t => t.uid);
@@ -298,6 +303,14 @@ function usePower(el) {
     if (!info.need) { Input.ignoreUp = true; uiSend({ type: 'power' }); return; }
     el.classList.add('selected');
     startTargeting(el, info.targets, uid => uiSend({ type: 'power', target: uid }));
+}
+
+function useLocation(el, loc) {
+    const info = Engine.activateInfo(UI.view, UI.me, loc);
+    if (!info.ok) { uiToast(info.reason, 'info'); Input.ignoreUp = true; return; }
+    if (!info.need) { Input.ignoreUp = true; uiSend({ type: 'activate', uid: loc.uid }); return; }
+    el.classList.add('selected');
+    startTargeting(el, info.targets, uid => uiSend({ type: 'activate', uid: loc.uid, target: uid }));
 }
 
 // ---------- The targeting arrow ----------

@@ -13,7 +13,7 @@ A two-player card game in the style of Hearthstone. It runs in the browser with 
 | Mana | 1 crystal on your first turn, +1 every turn, up to 10 |
 | Opening hand | 3 cards going first, 4 + The Coin going second, with a mulligan |
 | Hero Power | Once per turn, 2 mana by default (each hero sets its own) |
-| Limits | 10 cards in hand (extra draws burn), 7 minions per side, 5 secrets |
+| Limits | 10 cards in hand (extra draws burn), 7 minions and locations per side, 5 secrets |
 | Fatigue | Drawing from an empty deck deals 1, then 2, then 3... damage |
 | Turn timer | 90 s for online and LAN games (the rope burns for the last 20 s) |
 | Turn limit | The game is a draw after 90 turns |
@@ -48,7 +48,7 @@ Your decks are saved in this browser and appear in every game mode. In online an
 **Controls**
 - Drag a card onto the board, or click it and then click the board. Drop minions between other minions to choose their spot.
 - Drag from a minion or your hero onto an enemy to attack.
-- Click your Hero Power. Targeted things show an arrow; click or release on a highlighted target.
+- Click your Hero Power or one of your locations to use it. Targeted things show an arrow; click or release on a highlighted target.
 - Right-click or Esc cancels. Hover anything on the board to see its card.
 
 ### Online games
@@ -107,10 +107,11 @@ defineCards([
 |---|---|
 | `id` | Unique id; decks and effects use it |
 | `name`, `text` | Shown on the card. `**Bold**`; `$3` is a number that Spell Damage raises. Long texts and names shrink (names wrap to two lines) to fit the card |
-| `type` | `'minion'`, `'spell'` or `'weapon'` |
+| `type` | `'minion'`, `'spell'`, `'weapon'` or `'location'` |
 | `cost` | Mana cost |
 | `atk`, `hp` | Minions |
 | `atk`, `durability` | Weapons |
+| `durability` | Locations: how many times it can be used |
 | `class` | `'neutral'` or a hero's `class`. Class cards only go in that hero's decks |
 | `rarity` | `common`, `rare`, `epic` or `legendary` (legendary: 1 copy per deck) |
 | `art` | An emoji, or an image path such as `'img/cards/fire_bolt.png'` |
@@ -123,7 +124,9 @@ defineCards([
 | `battlecry` | A minion's or weapon's effects when played from hand |
 | `combo` | Extra effects if another card was played earlier this turn |
 | `deathrattle` | Effects when it dies |
-| `spellburst` | A minion's effects, once, after you next cast a spell (secrets count). `eventSubject` is the spell || `triggers` | Reactions to game events, see [Triggers](#triggers) |
+| `spellburst` | A minion's effects, once, after you next cast a spell (secrets count). `eventSubject` is the spell |
+| `activate` | A location's effects when it is used, see [Locations](#locations) |
+| `triggers` | Reactions to game events, see [Triggers](#triggers) |
 | `aura` | Continuous bonuses while it is in play, see [Auras](#auras) |
 | `secret` | Makes a spell a Secret, see [Secrets](#secrets) |
 | `chooseOne` | `[{ name, text, art, target, effects }, ...]`, where the player picks one option |
@@ -131,6 +134,7 @@ defineCards([
 | `targetFilter` | Limits the targets, e.g. `{ minAtk: 5 }` or `(e, api) => e.damage > 0` |
 | `targetIf` | Only asks for a target when true, e.g. `'combo'` |
 | `playIf` | A condition; the card can't be played without it |
+| `activateIf` | A condition; the location can't be used without it |
 
 ### Keywords
 
@@ -151,7 +155,7 @@ defineCards([
 | `freeze` | On a minion: freezes any character it damages |
 | `catalyst` | Minions you play next to it run their Battlecry (or Choose One option) twice; two Catalyst neighbours don't stack |
 
-Battlecry, Deathrattle, Combo, Overload, Secret, Choose One and Discover are explained on the card automatically.
+Battlecry, Deathrattle, Combo, Overload, Secret, Choose One, Discover and Location are explained on the card automatically.
 
 ### Effects
 
@@ -192,6 +196,7 @@ A **pool** is a filter over collectible cards, such as `{ type: 'spell', class: 
 - **Characters** (heroes and minions): `myCharacters`, `enemyCharacters`, `allCharacters`
 - **Random** (picked again for each repeat): `randomEnemyMinion`, `randomMyMinion`, `randomOtherMyMinion`, `randomMinion`, `randomEnemyCharacter`, `randomCharacter`
 - **From the triggering event:** `eventSubject`, `eventTarget`, `eventSource`
+- **Locations:** `myLocations`, `enemyLocations`
 - **Other:** `myWeapon`, `enemyWeapon`, `myHand`, `enemyHand`
 
 `friendly…` works as well as `my…` (for example `friendlyMinions`). `to` can also be a list of selectors or a function `api => [entities]`.
@@ -255,6 +260,7 @@ triggers: [{ on: 'turnEnd', who: 'friendly', effects: [{ do: 'heal', to: 'myHero
 | `damaged`, `healed` | The character (`event.amount`, `event.source`) |
 | `attack` / `afterAttack` | The attacker (target: the defender) |
 | `heroPower` | The hero power |
+| `locationUsed` | The location (target: its chosen target), after its effect |
 | `cardDrawn` | The card |
 | `secretRevealed` | The secret |
 
@@ -277,6 +283,24 @@ secret: { on: 'attack', who: 'enemy', targetIs: 'myHero', effects: [{ do: 'armor
 ```
 
 The opponent sees only that a Secret exists. It triggers once, during the opponent's turn, and is then revealed.
+
+### Locations
+
+```js
+{ id: 'training_grounds', name: 'Training Grounds', type: 'location', cost: 2, durability: 3, art: '🏟️',
+  text: 'Give a friendly minion +1/+1.', target: 'friendlyMinion', activate: [{ do: 'buff', to: 'target', atk: 1, hp: 1 }] }
+```
+
+- Playing a location puts it in the minion row, where the player chooses its spot. It takes one of the 7 slots.
+- Clicking it runs `activate`. It can be used on the turn it is played.
+- Each use costs 1 Durability and closes the location until your `RULES.locationCooldown`-th turn after that (only your own turns count). The default is 2: used on one turn, it stays closed on your next turn and opens on the one after.
+- At 0 Durability it is destroyed after its effect resolves.
+- `target`, `targetFilter` and `targetIf` belong to the activation, as on a Hero Power. With no valid target the location can't be used.
+- A location is not a minion:
+  - It has no Attack or Health, can't attack or be attacked, and can't be chosen as a target.
+  - Minion selectors, Silence, and summon and death triggers ignore it.
+  - To reach it, use `myLocations` / `enemyLocations`, for example `{ do: 'destroy', to: 'enemyLocations' }`.
+- Triggers, auras and a deathrattle work on a location as on a minion. A minion summoned by a location appears to its right.
 
 ### Script API
 

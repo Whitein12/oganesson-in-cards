@@ -1,6 +1,7 @@
 # Hero: Deján
 
 Class inspiration: Priest
+Player inspiration: Theoretical chemist (DFT)
 Playstyle: Control, Buff
 
 ### Hero power:

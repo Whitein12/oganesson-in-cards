@@ -88,7 +88,7 @@ const Coll = {
         };
         chips('coll-cls', classes, f.cls, v => { f.cls = v; });
         chips('coll-cost', costs, f.cost, v => { f.cost = v; });
-        chips('coll-type', [['all', 'All'], ['minion', 'Minions'], ['spell', 'Spells'], ['weapon', 'Weapons']], f.type, v => { f.type = v; });
+        chips('coll-type', [['all', 'All'], ['minion', 'Minions'], ['spell', 'Spells'], ['weapon', 'Weapons'], ['location', 'Locations']], f.type, v => { f.type = v; });
     },
 
     visibleCards() {

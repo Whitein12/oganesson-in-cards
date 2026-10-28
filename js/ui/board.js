@@ -283,6 +283,14 @@ function renderBoard(el, p) {
         d.dataset.uid = m.uid;
         return d;
     }, (d, m) => {
+        if (m.zone === 'location') {
+            const closed = m.readyTurn > UI.view.turn;
+            d.className = 'location' + (closed ? ' closed' : '') + ((CARDS[m.cardId] || {}).rarity === 'legendary' ? ' legendary' : '');
+            d.style.setProperty('--cls', classColor((CARDS[m.cardId] || {}).class));
+            const sig = JSON.stringify([m.cardId, m.durability, closed]);
+            if (d._sig !== sig) { d._sig = sig; d.innerHTML = locationInner(m, closed); }
+            return;
+        }
         d.className = minionClasses(m);
         d.style.setProperty('--cls', classColor((CARDS[m.cardId] || {}).class));
         const sig = JSON.stringify([m.cardId, m.atk, m.hp, m.maxHp, m.damage, m.shield, m.frozen, m.stealth, m.silenced, m.sleeping, m.reborn, m.spellburst, m.kw, m.enchants.length]);
@@ -409,6 +417,10 @@ function showZoom(el) {
         const def = CARDS[e.cardId];
         card = big(cardHTML(def, { atk: e.atk, maxHp: e.maxHp }));
         notes = notesHTML(def, e);
+    } else if (e.zone === 'location') {
+        const def = CARDS[e.cardId];
+        card = big(cardHTML(def, { durability: e.durability }));
+        notes = notesHTML(def, null) + (e.readyTurn > v.turn ? '<div class="note-box status"><b>Closed</b>' + esc(locationOpensText(v, e)) + '</div>' : '');
     } else if (e.zone === 'weapon') {
         const def = CARDS[e.cardId];
         card = big(cardHTML(def, { atk: e.atk, durability: e.durability }));

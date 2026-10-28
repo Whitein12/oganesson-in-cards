@@ -292,9 +292,10 @@ const Menu = {
             '<li>You start with ' + RULES.startHand[0] + ' cards (' + RULES.startHand[1] + ' and The Coin if you go second) and may replace any of them.</li>' +
             '<li>You can only play cards, attack and use your <b>Hero Power</b> (once per turn) during your own turn.</li>' +
             '<li>Minions can attack the turn after they are played. Enemies with <b>Taunt</b> must be attacked first.</li>' +
-            '<li>Up to ' + RULES.boardLimit + ' minions per side and ' + RULES.handLimit + ' cards in hand. Drawing from an empty deck causes growing fatigue damage.</li>' +
+            '<li><b>Locations</b> take a minion\'s spot on the board. Click one to use it: it loses 1 Durability and closes ' + locationCooldownText() + '. At 0 Durability it is destroyed.</li>' +
+            '<li>Up to ' + RULES.boardLimit + ' minions and locations per side and ' + RULES.handLimit + ' cards in hand. Drawing from an empty deck causes growing fatigue damage.</li>' +
             '<li><b>Controls:</b> drag a card onto the board (or click it, then click the board). Drag from a minion or your hero to attack. ' +
-            'Click your Hero Power to use it. Right-click or Esc cancels. Hover anything to see its card.</li></ul>' +
+            'Click your Hero Power or a location to use it. Right-click or Esc cancels. Hover anything to see its card.</li></ul>' +
             '<div class="row" style="margin-top:calc(var(--u)*2)"><button class="btn secondary" type="button" data-back>Back</button></div></div>', 'rules');
     },
 

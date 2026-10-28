@@ -28,6 +28,7 @@ const KEYWORDS = {
     secret: { name: 'Secret', text: 'Hidden until it triggers on your opponent\'s turn.' },
     discover: { name: 'Discover', text: 'Choose one of three cards to add to your hand.' },
     chooseOne: { name: 'Choose One', text: 'Pick one of the effects when you play it.' },
+    location: { name: 'Location', text: 'Takes a minion\'s place on the board. Click it to use its effect: it loses 1 Durability and closes until your 2nd turn after that. It is destroyed at 0 Durability.' },
     trigger: { name: 'Trigger', text: 'Reacts to something happening in the game.' },
     aura: { name: 'Aura', text: 'Affects other cards while this is in play.' },
 };

@@ -3,7 +3,7 @@
 // ==========================================
 
 const GAME_TITLE = 'Oganesson in Cards';
-const PROTOCOL_VERSION = 2; // bump when the network messages change (session.js)
+const PROTOCOL_VERSION = 3; // bump when the network messages change (session.js)
 
 const RULES = {
     heroHp: 30,            // a hero's starting and max Health (a hero definition can set its own hp)
@@ -18,6 +18,7 @@ const RULES = {
     maxCopies: 2,          // copies of one card in a deck
     maxLegendaryCopies: 1,
     maxSecrets: 5,
+    locationCooldown: 2,   // a used location stays closed until this many of its owner's turns later (2 = it skips your next turn)
     turnSeconds: 90,       // online / LAN turn timer (0 = off); hot-seat and bot games have none
     mulliganSeconds: 45,
     ropeSeconds: 20,       // the rope burns during the last N seconds of a turn

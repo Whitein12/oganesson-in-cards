@@ -1,8 +1,8 @@
 // ==========================================
 // actions.js - New games, turns, the player actions and their legality checks; the Engine facade
 // Actions: { type: 'mulligan', replace: [uid] } | { type: 'play', uid, pos, target, choice } |
-//          { type: 'attack', attacker, target } | { type: 'power', target } | { type: 'end' } |
-//          { type: 'choose', index } | { type: 'concede' }
+//          { type: 'attack', attacker, target } | { type: 'power', target } | { type: 'activate', uid, target } |
+//          { type: 'end' } | { type: 'choose', index } | { type: 'concede' }
 // Engine.apply(g, player, action) -> { ok, error, events } mutates g (the host's authoritative state).
 // ==========================================
 
@@ -63,7 +63,7 @@ function startTurn(g) {
     p.overloadNow = p.overloadNext; p.overloadNext = 0;
     p.mana = Math.max(0, p.maxMana - p.overloadNow);
     p.power.uses = 0; p.hero.attacks = 0; p.cardsPlayed = 0;
-    for (const m of p.board) { m.sleeping = false; m.attacks = 0; }
+    for (const m of p.board) if (m.zone === 'board') { m.sleeping = false; m.attacks = 0; }
     emit(g, { t: 'turn', p: pi, turn: g.turn });
     refresh(g);
     if (!phaseRun(g, () => fire(g, 'turnStart', { player: pi }))) return;
@@ -100,6 +100,7 @@ function cleanAction(a) {
         case 'play': { const c = { type: 'play', uid: a.uid }; if (a.pos != null) c.pos = a.pos; if (a.target != null) c.target = a.target; if (a.choice != null) c.choice = a.choice; return c; }
         case 'attack': return { type: 'attack', attacker: a.attacker, target: a.target };
         case 'power': return a.target != null ? { type: 'power', target: a.target } : { type: 'power' };
+        case 'activate': return a.target != null ? { type: 'activate', uid: a.uid, target: a.target } : { type: 'activate', uid: a.uid };
         default: return { type: a.type };
     }
 }
@@ -118,6 +119,7 @@ function runAction(g, pi, a, choices, shown) {
             case 'play': doPlay(g, pi, a); break;
             case 'attack': doAttack(g, pi, a); break;
             case 'power': doPower(g, pi, a); break;
+            case 'activate': doActivate(g, pi, a); break;
         }
         refresh(g);
         deathPhase(g);
@@ -232,6 +234,9 @@ function doPlay(g, pi, a) {
         if (!phaseRun(g, () => { placeMinion(g, pi, card, a.pos); fire(g, 'cardPlayed', playEv); fire(g, 'summoned', { player: pi, subject: card }); })) return;
         if (!phaseRun(g, effects)) return;
         phaseRun(g, () => { fire(g, 'afterSummon', { player: pi, subject: card }); fire(g, 'afterCardPlayed', playEv); });
+    } else if (def.type === 'location') {
+        if (!phaseRun(g, () => { placeLocation(g, pi, card, a.pos); fire(g, 'cardPlayed', playEv); })) return;
+        phaseRun(g, () => fire(g, 'afterCardPlayed', playEv));
     } else if (def.type === 'weapon') {
         if (!phaseRun(g, () => fire(g, 'cardPlayed', playEv))) return;
         if (!phaseRun(g, () => { equipWeapon(g, pi, card); effects(); })) return;
@@ -280,6 +285,20 @@ function doPower(g, pi, a) {
     phaseRun(g, () => fire(g, 'heroPower', { player: pi, subject: p.power, target }));
 }
 
+// Using a location: it loses 1 Durability and closes until its owner's RULES.locationCooldown-th turn from now,
+// then its effect runs. At 0 Durability it is destroyed in the death phase after the effect.
+function doActivate(g, pi, a) {
+    const loc = findEntity(g, a.uid);
+    const def = CARDS[loc.cardId];
+    loc.durability--;
+    loc.readyTurn = g.turn + 2 * RULES.locationCooldown; // g.turn counts both players' turns
+    const target = a.target != null ? findEntity(g, a.target) : null;
+    emit(g, { t: 'activate', p: pi, uid: loc.uid, cardId: loc.cardId, target: target ? target.uid : null, durability: loc.durability });
+    const ctx = { p: pi, src: loc, target, def, isSpell: false };
+    if (!phaseRun(g, () => runEffects(g, def.activate, ctx))) return;
+    phaseRun(g, () => fire(g, 'locationUsed', { player: pi, subject: loc, target }));
+}
+
 // ---------- Legality (pure reads of public / own information, so they also work on views) ----------
 
 function canAct(g, pi) { return g.phase === 'main' && g.current === pi && !g.pending; }
@@ -292,13 +311,14 @@ function playInfo(g, pi, card) {
     if (!def) return no('Unknown card');
     if (!canAct(g, pi)) return no('Not now');
     if (card.cost > p.mana) return no('Not enough mana');
-    if (def.type === 'minion' && p.board.length >= RULES.boardLimit) return no('Your board is full');
+    if ((def.type === 'minion' || def.type === 'location') && p.board.length >= RULES.boardLimit) return no('Your board is full');
     if (def.secret) {
         if (p.secrets.length >= RULES.maxSecrets) return no('Too many secrets');
         if (p.secrets.some(s => s.cardId === def.id)) return no('That secret is already active');
     }
     const ctx = { p: pi, src: card, def, combo: p.cardsPlayed > 0 };
     if (def.playIf && !checkCond(g, def.playIf, ctx)) return no('Can\'t be played now');
+    if (def.type === 'location') return { ok: true, need: false, targets: [] }; // its target is for activating
     const evalTarget = src => {
         const spec = src.target && !(src.targetIf && !checkCond(g, src.targetIf, ctx)) ? src.target : null;
         if (!spec) return { ok: true, need: false, targets: [] };
@@ -345,6 +365,24 @@ function powerInfo(g, pi) {
     return { ok: true, need: true, targets: ts.map(e => e.uid) };
 }
 
+// What activating one of your locations needs (same shape as powerInfo)
+function activateInfo(g, pi, loc) {
+    const no = reason => ({ ok: false, reason, need: false, targets: [] });
+    if (!loc || loc.zone !== 'location' || loc.owner !== pi) return no('Choose one of your locations.');
+    const def = CARDS[loc.cardId];
+    if (!canAct(g, pi)) return no('Not now');
+    if (loc.readyTurn > g.turn) return no('This location is still closed');
+    const ctx = { p: pi, src: loc, def };
+    const summons = [].concat(def.activate || []).some(fx => fx && fx.do === 'summon' && fx.side !== 'enemy');
+    if (summons && g.players[pi].board.length >= RULES.boardLimit) return no('Your board is full');
+    if (def.activateIf && !checkCond(g, def.activateIf, ctx)) return no('Can\'t be used now');
+    const spec = def.target && !(def.targetIf && !checkCond(g, def.targetIf, ctx)) ? def.target : null;
+    if (!spec) return { ok: true, need: false, targets: [] };
+    const ts = validTargets(g, pi, spec, { filter: def.targetFilter, src: loc });
+    if (!ts.length) return no('No valid target');
+    return { ok: true, need: true, targets: ts.map(e => e.uid) };
+}
+
 function checkAction(g, pi, a) {
     switch (a.type) {
         case 'end': return null;
@@ -376,6 +414,13 @@ function checkAction(g, pi, a) {
             if (!info.ok) return info.reason;
             if (info.need && !info.targets.includes(a.target)) return 'Choose a valid target.';
             if (!info.need && a.target != null) return 'Your Hero Power doesn\'t take a target.';
+            return null;
+        }
+        case 'activate': {
+            const info = activateInfo(g, pi, findEntity(g, a.uid));
+            if (!info.ok) return info.reason;
+            if (info.need && !info.targets.includes(a.target)) return 'Choose a valid target.';
+            if (!info.need && a.target != null) return 'That location doesn\'t take a target.';
             return null;
         }
         case 'choose': return 'There is nothing to choose.';
@@ -411,12 +456,18 @@ function legalActions(g, pi) {
         for (const [o, choice] of variants) {
             const base = { type: 'play', uid: card.uid };
             if (choice != null) base.choice = choice;
-            if (def.type === 'minion') base.pos = p.board.length;
+            if (def.type === 'minion' || def.type === 'location') base.pos = p.board.length;
             if (o.need) for (const t of o.targets) out.push(Object.assign({}, base, { target: t }));
             else out.push(base);
         }
     }
     for (const e of [p.hero].concat(p.board)) for (const t of attackTargets(g, pi, e)) out.push({ type: 'attack', attacker: e.uid, target: t.uid });
+    for (const loc of p.board) {
+        const info = activateInfo(g, pi, loc);
+        if (!info.ok) continue;
+        if (info.need) for (const t of info.targets) out.push({ type: 'activate', uid: loc.uid, target: t });
+        else out.push({ type: 'activate', uid: loc.uid });
+    }
     const pw = powerInfo(g, pi);
     if (pw.ok) {
         if (pw.need) for (const t of pw.targets) out.push({ type: 'power', target: t });
@@ -436,6 +487,6 @@ function whoActs(g) {
 
 const Engine = {
     newGame, apply: applyAction, viewFor, redactEvents,
-    playInfo, canAttack, attackTargets, powerInfo, legalActions, whoActs, validTargets,
+    playInfo, canAttack, attackTargets, powerInfo, activateInfo, legalActions, whoActs, validTargets,
     findEntity, isAlive, spellPower, validateDeck, validateAll, deckById, deckCards, cardsetHash,
 };
